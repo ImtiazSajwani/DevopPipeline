@@ -3,13 +3,17 @@ pipeline {
     
     environment {
         PROJECT_NAME = 'todo-devops-demo'
+        NODE_VERSION = 'Node18'  // Must match the Name in Jenkins tool config
         STAGING_PORT = '3001'
         PROD_PORT = '3000'
         COVERAGE_THRESHOLD = '70'
         SECURITY_THRESHOLD = 'moderate'
         STAGING_PID_FILE = "${WORKSPACE}/staging.pid"
         PROD_PID_FILE = "${WORKSPACE}/production.pid"
-        PATH = "/usr/bin:/usr/local/bin:$PATH"
+    }
+    
+    tools {
+        nodejs "${NODE_VERSION}"
     }
     
     stages {
@@ -41,34 +45,11 @@ pipeline {
                 script {
                     echo 'Building application...'
                     sh '''
-                        echo "Checking Node.js availability..."
-                        if command -v node &> /dev/null; then
-                            echo "Node.js found: $(node --version)"
-                            echo "npm found: $(npm --version)"
-                        else
-                            echo "Node.js not found in PATH"
-                            echo "Checking common Node.js locations..."
-                            if [ -f "/usr/bin/node" ]; then
-                                export PATH="/usr/bin:$PATH"
-                                echo "Using system Node.js: $(node --version)"
-                            elif [ -f "/usr/local/bin/node" ]; then
-                                export PATH="/usr/local/bin:$PATH"
-                                echo "Using local Node.js: $(node --version)"
-                            elif [ -d "/opt/nodejs" ]; then
-                                export PATH="/opt/nodejs/bin:$PATH"
-                                echo "Using opt Node.js: $(node --version)"
-                            else
-                                echo "ERROR: Node.js not found. Please install Node.js manually on this system."
-                                echo "You can install it using:"
-                                echo "1. Package manager: apt-get install nodejs npm"
-                                echo "2. NodeSource: curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs"
-                                echo "3. Manual download from nodejs.org"
-                                exit 1
-                            fi
-                        fi
-                        
-                        echo "Final Node.js version: $(node --version)"
-                        echo "Final npm version: $(npm --version)"
+                        echo "Using Jenkins-managed Node.js..."
+                        echo "Node.js version: $(node --version)"
+                        echo "npm version: $(npm --version)"
+                        echo "Node.js location: $(which node)"
+                        echo "npm location: $(which npm)"
                         
                         echo "Installing project dependencies..."
                         npm ci || npm install
@@ -109,8 +90,7 @@ pipeline {
                 }
                 failure {
                     echo 'Build failed'
-                    echo 'Please ensure Node.js is installed on the Jenkins agent'
-                    echo 'You can install it manually using: apt-get install nodejs npm'
+                    echo 'Check NodeJS tool configuration in Jenkins'
                 }
             }
         }
