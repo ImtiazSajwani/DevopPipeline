@@ -41,29 +41,63 @@ pipeline {
                 script {
                     echo 'Building application...'
                     sh '''
-                        if ! command -v node &> /dev/null; then
-                            echo "Installing Node.js..."
-                            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-                            sudo apt-get install -y nodejs
+                        echo "Checking Node.js availability..."
+                        if command -v node &> /dev/null; then
+                            echo "Node.js found: $(node --version)"
+                            echo "npm found: $(npm --version)"
+                        else
+                            echo "Node.js not found in PATH"
+                            echo "Checking common Node.js locations..."
+                            if [ -f "/usr/bin/node" ]; then
+                                export PATH="/usr/bin:$PATH"
+                                echo "Using system Node.js: $(node --version)"
+                            elif [ -f "/usr/local/bin/node" ]; then
+                                export PATH="/usr/local/bin:$PATH"
+                                echo "Using local Node.js: $(node --version)"
+                            elif [ -d "/opt/nodejs" ]; then
+                                export PATH="/opt/nodejs/bin:$PATH"
+                                echo "Using opt Node.js: $(node --version)"
+                            else
+                                echo "ERROR: Node.js not found. Please install Node.js manually on this system."
+                                echo "You can install it using:"
+                                echo "1. Package manager: apt-get install nodejs npm"
+                                echo "2. NodeSource: curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs"
+                                echo "3. Manual download from nodejs.org"
+                                exit 1
+                            fi
                         fi
-                        echo "Node.js version: $(node --version)"
-                        echo "npm version: $(npm --version)"
+                        
+                        echo "Final Node.js version: $(node --version)"
+                        echo "Final npm version: $(npm --version)"
+                        
+                        echo "Installing project dependencies..."
                         npm ci || npm install
-                        npm run build || echo "No build script"
+                        
+                        echo "Running build script..."
+                        npm run build || echo "No build script configured, continuing..."
+                        
+                        echo "Checking application files..."
                         ls -la
+                        
+                        # Verify critical files exist
                         if [ ! -f "server.js" ]; then
                             echo "server.js not found"
                             exit 1
                         fi
+                        
                         if [ ! -f "package.json" ]; then
                             echo "package.json not found"
                             exit 1
                         fi
+                        
+                        # Create build info file
                         echo "Build Number: ${BUILD_NUMBER}" > build-info.txt
                         echo "Build Time: $(date)" >> build-info.txt
                         echo "Node Version: $(node --version)" >> build-info.txt
                         echo "NPM Version: $(npm --version)" >> build-info.txt
                         echo "Git Commit: $(git rev-parse HEAD)" >> build-info.txt
+                        
+                        echo "Build preparation completed successfully"
                         cat build-info.txt
                     '''
                 }
@@ -75,6 +109,8 @@ pipeline {
                 }
                 failure {
                     echo 'Build failed'
+                    echo 'Please ensure Node.js is installed on the Jenkins agent'
+                    echo 'You can install it manually using: apt-get install nodejs npm'
                 }
             }
         }
