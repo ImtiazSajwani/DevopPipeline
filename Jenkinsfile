@@ -29,7 +29,7 @@ pipeline {
                         node --version || echo "Node.js not found in PATH"
                         npm --version || echo "npm not found in PATH"
                         which node || echo "Node.js location not found"
-                        which npm || echo "npm location not found"
+                        which npm || echo "npm location  not found"
                     '''
                 }
             }
