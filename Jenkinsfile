@@ -4,7 +4,7 @@ pipeline {
     environment {
         // Project configuration
         PROJECT_NAME = 'todo-devops-demo'
-        NODE_VERSION = '1.6.4'
+        NODE_VERSION = 'NodeJS-18'  // Updated to match Jenkins tool name
         
         // Deployment configuration
         STAGING_PORT = '3001'
@@ -68,7 +68,238 @@ pipeline {
             }
             post {
                 success {
-                    echo '✅ Checkout completed successfully'
+                    echo '✅ Monitoring setup completed successfully'
+                }
+                failure {
+                    echo '❌ Monitoring setup failed'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            node {
+                script {
+                    echo '🏁 Todo DevOps Pipeline (No Docker) completed'
+                    
+                    // Create comprehensive final report
+                    sh '''
+                        echo "=== Todo DevOps Pipeline Final Report ===" > final-report.txt
+                        echo "Build: ${BUILD_NUMBER}" >> final-report.txt
+                        echo "Timestamp: $(date)" >> final-report.txt
+                        echo "Branch: ${BRANCH_NAME:-main}" >> final-report.txt
+                        echo "Mode: No Docker Deployment" >> final-report.txt
+                        echo "" >> final-report.txt
+                        
+                        echo "Deployment Status:" >> final-report.txt
+                        
+                        # Check production
+                        if [ -f "${PROD_PID_FILE}" ] && ps -p $(cat ${PROD_PID_FILE}) > /dev/null; then
+                            echo "- Production: ✅ Running (PID: $(cat ${PROD_PID_FILE}))" >> final-report.txt
+                        else
+                            echo "- Production: ❌ Not running" >> final-report.txt
+                        fi
+                        
+                        # Check staging
+                        if [ -f "${STAGING_PID_FILE}" ] && ps -p $(cat ${STAGING_PID_FILE}) > /dev/null; then
+                            echo "- Staging: ✅ Running (PID: $(cat ${STAGING_PID_FILE}))" >> final-report.txt
+                        else
+                            echo "- Staging: ❌ Not running" >> final-report.txt
+                        fi
+                        
+                        echo "" >> final-report.txt
+                        echo "Access URLs:" >> final-report.txt
+                        echo "- Production: http://localhost:${PROD_PORT}" >> final-report.txt
+                        echo "- Staging: http://localhost:${STAGING_PORT}" >> final-report.txt
+                        echo "" >> final-report.txt
+                        
+                        echo "Health Check URLs:" >> final-report.txt
+                        echo "- Production Health: http://localhost:${PROD_PORT}/health" >> final-report.txt
+                        echo "- Staging Health: http://localhost:${STAGING_PORT}/health" >> final-report.txt
+                        echo "- Production Metrics: http://localhost:${PROD_PORT}/metrics" >> final-report.txt
+                        echo "- Staging Metrics: http://localhost:${STAGING_PORT}/metrics" >> final-report.txt
+                        echo "" >> final-report.txt
+                        
+                        echo "Pipeline Stages Completed:" >> final-report.txt
+                        echo "✅ 1. Checkout - Code retrieved from GitHub" >> final-report.txt
+                        echo "✅ 2. Build - Dependencies installed, build verified" >> final-report.txt
+                        echo "✅ 3. Test - Unit, Integration, Performance tests" >> final-report.txt
+                        echo "✅ 4. Code Quality - ESLint analysis, complexity check" >> final-report.txt
+                        echo "✅ 5. Security Scan - npm audit, secrets detection" >> final-report.txt
+                        echo "✅ 6. Deploy to Staging - Process-based deployment" >> final-report.txt
+                        echo "✅ 7. Release to Production - Blue-green deployment" >> final-report.txt
+                        echo "✅ 8. Monitoring & Alerting - Health monitoring setup" >> final-report.txt
+                        echo "" >> final-report.txt
+                        
+                        echo "Process Information:" >> final-report.txt
+                        echo "Node.js processes:" >> final-report.txt
+                        ps aux | grep node | grep -v grep >> final-report.txt || echo "No Node.js processes found" >> final-report.txt
+                        echo "" >> final-report.txt
+                        
+                        echo "Port Usage:" >> final-report.txt
+                        netstat -tlnp | grep -E ":(${PROD_PORT}|${STAGING_PORT})" >> final-report.txt || echo "No processes on configured ports" >> final-report.txt
+                    '''
+                    
+                    // Archive final report
+                    archiveArtifacts artifacts: 'final-report.txt'
+                    
+                    // Clean up test PID files
+                    sh '''
+                        rm -f integration-test.pid performance-test.pid || true
+                    '''
+                }
+            }
+        }
+        
+        success {
+            node {
+                script {
+                    echo '🎉 Todo DevOps Pipeline (No Docker) completed successfully!'
+                    
+                    if (fileExists('final-report.txt')) {
+                        def report = readFile('final-report.txt')
+                        echo "\\n${report}"
+                    }
+                    
+                    // Success notification
+                    emailext (
+                        subject: "✅ Todo Pipeline Success (No Docker): Build #${env.BUILD_NUMBER}",
+                        body: """
+                            🎉 Todo DevOps Pipeline completed successfully without Docker!
+                            
+                            Build: ${env.BUILD_NUMBER}
+                            Branch: ${env.BRANCH_NAME ?: 'main'}
+                            Duration: ${currentBuild.durationString}
+                            
+                            ✅ All 7 stages completed successfully:
+                            • Checkout ✅ (Git clone from repository)
+                            • Build ✅ (npm install, verification)
+                            • Test ✅ (Unit, Integration, Performance)
+                            • Code Quality ✅ (ESLint, complexity analysis)
+                            • Security ✅ (npm audit, secrets scan)
+                            • Deploy ✅ (Process-based staging)
+                            • Release ✅ (Blue-green production)
+                            • Monitoring ✅ (Health monitoring setup)
+                            
+                            🚀 Application URLs:
+                            Production: http://localhost:${env.PROD_PORT}
+                            Staging: http://localhost:${env.STAGING_PORT}
+                            
+                            📊 Health Monitoring:
+                            Production Health: http://localhost:${env.PROD_PORT}/health
+                            Production Metrics: http://localhost:${env.PROD_PORT}/metrics
+                            
+                            🔍 View build details: ${env.BUILD_URL}
+                            
+                            Note: This deployment uses Node.js processes instead of Docker containers.
+                            Both staging and production applications are running as separate processes.
+                        """,
+                        to: "${env.CHANGE_AUTHOR_EMAIL ?: 'admin@company.com'}"
+                    )
+                }
+            }
+        }
+        
+        failure {
+            node {
+                script {
+                    echo '❌ Todo DevOps Pipeline (No Docker) failed'
+                    
+                    // Clean up any hanging processes
+                    sh '''
+                        echo "Cleaning up processes..."
+                        if [ -f "${STAGING_PID_FILE}" ]; then
+                            kill $(cat ${STAGING_PID_FILE}) 2>/dev/null || echo "Staging cleanup attempted"
+                            rm -f ${STAGING_PID_FILE}
+                        fi
+                        
+                        if [ -f "${PROD_PID_FILE}" ]; then
+                            kill $(cat ${PROD_PID_FILE}) 2>/dev/null || echo "Production cleanup attempted"
+                            rm -f ${PROD_PID_FILE}
+                        fi
+                        
+                        # Clean up test processes
+                        rm -f integration-test.pid performance-test.pid || true
+                        pkill -f "PORT=300[2-3]" || echo "Test process cleanup attempted"
+                    '''
+                    
+                    emailext (
+                        subject: "❌ Todo Pipeline Failed (No Docker): Build #${env.BUILD_NUMBER}",
+                        body: """
+                            ❌ Todo DevOps Pipeline failed
+                            
+                            Build: ${env.BUILD_NUMBER}
+                            Failed Stage: ${env.STAGE_NAME ?: 'Unknown'}
+                            
+                            Please check the build logs: ${env.BUILD_URL}console
+                            
+                            All test processes have been cleaned up automatically.
+                        """,
+                        to: "${env.CHANGE_AUTHOR_EMAIL ?: 'admin@company.com'}",
+                        attachLog: true
+                    )
+                }
+            }
+        }
+        
+        unstable {
+            node {
+                script {
+                    echo '⚠️ Todo DevOps Pipeline (No Docker) completed with warnings'
+                    
+                    emailext (
+                        subject: "⚠️ Todo Pipeline Unstable (No Docker): Build #${env.BUILD_NUMBER}",
+                        body: """
+                            ⚠️ Todo DevOps Pipeline completed with warnings
+                            
+                            Build: ${env.BUILD_NUMBER}
+                            Issues: Likely security warnings or test failures
+                            
+                            Applications may still be deployed. Check build details: ${env.BUILD_URL}
+                        """,
+                        to: "${env.CHANGE_AUTHOR_EMAIL ?: 'admin@company.com'}"
+                    )
+                }
+            }
+        }
+        
+        cleanup {
+            node {
+                script {
+                    echo '🧹 Final cleanup...'
+                    
+                    // Clean workspace but preserve important files
+                    sh '''
+                        # Create cache directory for next build
+                        mkdir -p .jenkins_cache
+                        
+                        # Preserve important files
+                        cp final-report.txt .jenkins_cache/ 2>/dev/null || true
+                        cp monitoring-setup.txt .jenkins_cache/ 2>/dev/null || true
+                        cp build-info.txt .jenkins_cache/ 2>/dev/null || true
+                        
+                        # List what's preserved
+                        echo "Files preserved for next build:"
+                        ls -la .jenkins_cache/ || echo "No files preserved"
+                    '''
+                    
+                    // Clean workspace
+                    cleanWs(
+                        cleanWhenNotBuilt: false,
+                        deleteDirs: true,
+                        disableDeferredWipeout: true,
+                        notFailBuild: true,
+                        patterns: [
+                            [pattern: '.jenkins_cache/**', type: 'EXCLUDE'],
+                            [pattern: '*.pid', type: 'INCLUDE']
+                        ]
+                    )
+                }
+            }
+        }
+    }
+} '✅ Checkout completed successfully'
                 }
                 failure {
                     echo '❌ Checkout failed'
@@ -138,7 +369,7 @@ EOF
                             
                             sh '''
                                 echo "Executing Jest unit tests..."
-                                npm test -- --ci --coverage --watchAll=false --testResultsProcessor=jest-junit || echo "Tests completed with issues"
+                                npm test -- --ci --coverage --watchAll=false || echo "Tests completed with issues"
                                 
                                 echo "Test results:"
                                 if [ -f "coverage/lcov-report/index.html" ]; then
@@ -157,11 +388,11 @@ EOF
                     }
                     post {
                         always {
-                            // Publish test results
-                            publishTestResults testResultsPattern: 'junit.xml', allowEmptyResults: true
-                            
-                            // Publish coverage report
+                            // Publish test results if available
                             script {
+                                if (fileExists('junit.xml')) {
+                                    publishTestResults testResultsPattern: 'junit.xml'
+                                }
                                 if (fileExists('coverage/cobertura-coverage.xml')) {
                                     publishCoverage adapters: [
                                         istanbulCoberturaAdapter('coverage/cobertura-coverage.xml')
@@ -813,224 +1044,4 @@ EOF
                     archiveArtifacts artifacts: 'monitoring/**/*,monitoring-setup.txt', allowEmptyArchive: true
                 }
                 success {
-                    echo '✅ Monitoring setup completed successfully'
-                }
-                failure {
-                    echo '❌ Monitoring setup failed'
-                }
-            }
-        }
-    }
-    
-    post {
-        always {
-            script {
-                echo '🏁 Todo DevOps Pipeline (No Docker) completed'
-                
-                // Create comprehensive final report
-                sh '''
-                    echo "=== Todo DevOps Pipeline Final Report ===" > final-report.txt
-                    echo "Build: ${BUILD_NUMBER}" >> final-report.txt
-                    echo "Timestamp: $(date)" >> final-report.txt
-                    echo "Branch: ${BRANCH_NAME:-main}" >> final-report.txt
-                    echo "Mode: No Docker Deployment" >> final-report.txt
-                    echo "" >> final-report.txt
-                    
-                    echo "Deployment Status:" >> final-report.txt
-                    
-                    # Check production
-                    if [ -f "${PROD_PID_FILE}" ] && ps -p $(cat ${PROD_PID_FILE}) > /dev/null; then
-                        echo "- Production: ✅ Running (PID: $(cat ${PROD_PID_FILE}))" >> final-report.txt
-                    else
-                        echo "- Production: ❌ Not running" >> final-report.txt
-                    fi
-                    
-                    # Check staging
-                    if [ -f "${STAGING_PID_FILE}" ] && ps -p $(cat ${STAGING_PID_FILE}) > /dev/null; then
-                        echo "- Staging: ✅ Running (PID: $(cat ${STAGING_PID_FILE}))" >> final-report.txt
-                    else
-                        echo "- Staging: ❌ Not running" >> final-report.txt
-                    fi
-                    
-                    echo "" >> final-report.txt
-                    echo "Access URLs:" >> final-report.txt
-                    echo "- Production: http://localhost:${PROD_PORT}" >> final-report.txt
-                    echo "- Staging: http://localhost:${STAGING_PORT}" >> final-report.txt
-                    echo "" >> final-report.txt
-                    
-                    echo "Health Check URLs:" >> final-report.txt
-                    echo "- Production Health: http://localhost:${PROD_PORT}/health" >> final-report.txt
-                    echo "- Staging Health: http://localhost:${STAGING_PORT}/health" >> final-report.txt
-                    echo "- Production Metrics: http://localhost:${PROD_PORT}/metrics" >> final-report.txt
-                    echo "- Staging Metrics: http://localhost:${STAGING_PORT}/metrics" >> final-report.txt
-                    echo "" >> final-report.txt
-                    
-                    echo "Pipeline Stages Completed:" >> final-report.txt
-                    echo "✅ 1. Checkout - Code retrieved from GitHub" >> final-report.txt
-                    echo "✅ 2. Build - Dependencies installed, build verified" >> final-report.txt
-                    echo "✅ 3. Test - Unit, Integration, Performance tests" >> final-report.txt
-                    echo "✅ 4. Code Quality - ESLint analysis, complexity check" >> final-report.txt
-                    echo "✅ 5. Security Scan - npm audit, secrets detection" >> final-report.txt
-                    echo "✅ 6. Deploy to Staging - Process-based deployment" >> final-report.txt
-                    echo "✅ 7. Release to Production - Blue-green deployment" >> final-report.txt
-                    echo "✅ 8. Monitoring & Alerting - Health monitoring setup" >> final-report.txt
-                    echo "" >> final-report.txt
-                    
-                    echo "Process Information:" >> final-report.txt
-                    echo "Node.js processes:" >> final-report.txt
-                    ps aux | grep node | grep -v grep >> final-report.txt || echo "No Node.js processes found" >> final-report.txt
-                    echo "" >> final-report.txt
-                    
-                    echo "Port Usage:" >> final-report.txt
-                    netstat -tlnp | grep -E ":(${PROD_PORT}|${STAGING_PORT})" >> final-report.txt || echo "No processes on configured ports" >> final-report.txt
-                '''
-                
-                // Archive final report
-                archiveArtifacts artifacts: 'final-report.txt'
-                
-                // Clean up test PID files
-                sh '''
-                    rm -f integration-test.pid performance-test.pid || true
-                '''
-            }
-        }
-        
-        success {
-            script {
-                echo '🎉 Todo DevOps Pipeline (No Docker) completed successfully!'
-                
-                if (fileExists('final-report.txt')) {
-                    def report = readFile('final-report.txt')
-                    echo "\\n${report}"
-                }
-                
-                // Success notification
-                emailext (
-                    subject: "✅ Todo Pipeline Success (No Docker): Build #${env.BUILD_NUMBER}",
-                    body: """
-                        🎉 Todo DevOps Pipeline completed successfully without Docker!
-                        
-                        Build: ${env.BUILD_NUMBER}
-                        Branch: ${env.BRANCH_NAME ?: 'main'}
-                        Duration: ${currentBuild.durationString}
-                        
-                        ✅ All 7 stages completed successfully:
-                        • Checkout ✅ (Git clone from repository)
-                        • Build ✅ (npm install, verification)
-                        • Test ✅ (Unit, Integration, Performance)
-                        • Code Quality ✅ (ESLint, complexity analysis)
-                        • Security ✅ (npm audit, secrets scan)
-                        • Deploy ✅ (Process-based staging)
-                        • Release ✅ (Blue-green production)
-                        • Monitoring ✅ (Health monitoring setup)
-                        
-                        🚀 Application URLs:
-                        Production: http://localhost:${env.PROD_PORT}
-                        Staging: http://localhost:${env.STAGING_PORT}
-                        
-                        📊 Health Monitoring:
-                        Production Health: http://localhost:${env.PROD_PORT}/health
-                        Production Metrics: http://localhost:${env.PROD_PORT}/metrics
-                        
-                        🔍 View build details: ${env.BUILD_URL}
-                        
-                        Note: This deployment uses Node.js processes instead of Docker containers.
-                        Both staging and production applications are running as separate processes.
-                    """,
-                    to: "${env.CHANGE_AUTHOR_EMAIL ?: 'admin@company.com'}"
-                )
-            }
-        }
-        
-        failure {
-            script {
-                echo '❌ Todo DevOps Pipeline (No Docker) failed'
-                
-                // Clean up any hanging processes
-                sh '''
-                    echo "Cleaning up processes..."
-                    if [ -f "${STAGING_PID_FILE}" ]; then
-                        kill $(cat ${STAGING_PID_FILE}) 2>/dev/null || echo "Staging cleanup attempted"
-                        rm -f ${STAGING_PID_FILE}
-                    fi
-                    
-                    if [ -f "${PROD_PID_FILE}" ]; then
-                        kill $(cat ${PROD_PID_FILE}) 2>/dev/null || echo "Production cleanup attempted"
-                        rm -f ${PROD_PID_FILE}
-                    fi
-                    
-                    # Clean up test processes
-                    rm -f integration-test.pid performance-test.pid || true
-                    pkill -f "PORT=300[2-3]" || echo "Test process cleanup attempted"
-                '''
-                
-                emailext (
-                    subject: "❌ Todo Pipeline Failed (No Docker): Build #${env.BUILD_NUMBER}",
-                    body: """
-                        ❌ Todo DevOps Pipeline failed
-                        
-                        Build: ${env.BUILD_NUMBER}
-                        Failed Stage: ${env.STAGE_NAME ?: 'Unknown'}
-                        
-                        Please check the build logs: ${env.BUILD_URL}console
-                        
-                        All test processes have been cleaned up automatically.
-                    """,
-                    to: "${env.CHANGE_AUTHOR_EMAIL ?: 'admin@company.com'}",
-                    attachLog: true
-                )
-            }
-        }
-        
-        unstable {
-            echo '⚠️ Todo DevOps Pipeline (No Docker) completed with warnings'
-            
-            emailext (
-                subject: "⚠️ Todo Pipeline Unstable (No Docker): Build #${env.BUILD_NUMBER}",
-                body: """
-                    ⚠️ Todo DevOps Pipeline completed with warnings
-                    
-                    Build: ${env.BUILD_NUMBER}
-                    Issues: Likely security warnings or test failures
-                    
-                    Applications may still be deployed. Check build details: ${env.BUILD_URL}
-                """,
-                to: "${env.CHANGE_AUTHOR_EMAIL ?: 'admin@company.com'}"
-            )
-        }
-        
-        cleanup {
-            script {
-                echo '🧹 Final cleanup...'
-                
-                // Clean workspace but preserve important files
-                sh '''
-                    # Create cache directory for next build
-                    mkdir -p .jenkins_cache
-                    
-                    # Preserve important files
-                    cp final-report.txt .jenkins_cache/ 2>/dev/null || true
-                    cp monitoring-setup.txt .jenkins_cache/ 2>/dev/null || true
-                    cp build-info.txt .jenkins_cache/ 2>/dev/null || true
-                    
-                    # List what's preserved
-                    echo "Files preserved for next build:"
-                    ls -la .jenkins_cache/ || echo "No files preserved"
-                '''
-                
-                // Clean workspace
-                cleanWs(
-                    cleanWhenNotBuilt: false,
-                    deleteDirs: true,
-                    disableDeferredWipeout: true,
-                    notFailBuild: true,
-                    patterns: [
-                        [pattern: '.jenkins_cache/**', type: 'EXCLUDE'],
-                        [pattern: '*.pid', type: 'INCLUDE']
-                    ]
-                )
-            }
-        }
-    }
-}
-                
+                    echo '
