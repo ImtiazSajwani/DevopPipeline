@@ -59,7 +59,7 @@ docker run -p 3000:3000 todo-app
 4. Point to `Jenkinsfile` in repository root
 5. Run the pipeline
 
-## 📊 API Endpoints
+## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -106,7 +106,7 @@ The application includes comprehensive monitoring:
 - **Automated Alerts**: Container and application health
 - **Log Aggregation**: Centralized logging
 
-## 🏗️ Jenkins Pipeline Stages
+## Jenkins Pipeline Stages
 
 ### 1. **Checkout** 
 - Code repository checkout

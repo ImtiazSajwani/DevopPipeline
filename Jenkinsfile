@@ -4,7 +4,7 @@ pipeline {
     environment {
         // Project configuration
         PROJECT_NAME = 'todo-devops-demo'
-        NODE_VERSION = '18'
+        NODE_VERSION = '1.6.4'
         
         // Deployment configuration
         STAGING_PORT = '3001'
