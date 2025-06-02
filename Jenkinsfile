@@ -604,121 +604,111 @@ EOF
     
     post {
         always {
-            node {
-                script {
-                    echo 'Todo DevOps Pipeline completed'
-                    sh '''
-                        echo "=== Todo DevOps Pipeline Final Report ===" > final-report.txt
-                        echo "Build: ${BUILD_NUMBER}" >> final-report.txt
-                        echo "Timestamp: $(date)" >> final-report.txt
-                        echo "Branch: ${BRANCH_NAME:-main}" >> final-report.txt
-                        echo "Mode: No Docker Deployment" >> final-report.txt
-                        echo "" >> final-report.txt
-                        echo "Deployment Status:" >> final-report.txt
-                        if [ -f "${PROD_PID_FILE}" ] && ps -p $(cat ${PROD_PID_FILE}) > /dev/null; then
-                            echo "- Production: Running (PID: $(cat ${PROD_PID_FILE}))" >> final-report.txt
-                        else
-                            echo "- Production: Not running" >> final-report.txt
-                        fi
-                        if [ -f "${STAGING_PID_FILE}" ] && ps -p $(cat ${STAGING_PID_FILE}) > /dev/null; then
-                            echo "- Staging: Running (PID: $(cat ${STAGING_PID_FILE}))" >> final-report.txt
-                        else
-                            echo "- Staging: Not running" >> final-report.txt
-                        fi
-                        echo "" >> final-report.txt
-                        echo "Access URLs:" >> final-report.txt
-                        echo "- Production: http://localhost:${PROD_PORT}" >> final-report.txt
-                        echo "- Staging: http://localhost:${STAGING_PORT}" >> final-report.txt
-                        echo "" >> final-report.txt
-                        echo "Pipeline Stages Completed:" >> final-report.txt
-                        echo "1. Checkout - Code retrieved from GitHub" >> final-report.txt
-                        echo "2. Build - Dependencies installed, build verified" >> final-report.txt
-                        echo "3. Test - Unit, Integration, Performance tests" >> final-report.txt
-                        echo "4. Code Quality - ESLint analysis, complexity check" >> final-report.txt
-                        echo "5. Security Scan - npm audit, secrets detection" >> final-report.txt
-                        echo "6. Deploy to Staging - Process-based deployment" >> final-report.txt
-                        echo "7. Release to Production - Blue-green deployment" >> final-report.txt
-                        echo "8. Monitoring & Alerting - Health monitoring setup" >> final-report.txt
-                        echo "" >> final-report.txt
-                        echo "Process Information:" >> final-report.txt
-                        echo "Node.js processes:" >> final-report.txt
-                        ps aux | grep node | grep -v grep >> final-report.txt || echo "No Node.js processes found" >> final-report.txt
-                        echo "" >> final-report.txt
-                        echo "Port Usage:" >> final-report.txt
-                        netstat -tlnp | grep -E ":(${PROD_PORT}|${STAGING_PORT})" >> final-report.txt || echo "No processes on configured ports" >> final-report.txt
-                    '''
-                    archiveArtifacts artifacts: 'final-report.txt'
-                    sh '''
-                        rm -f integration-test.pid performance-test.pid || true
-                    '''
-                }
+            script {
+                echo 'Todo DevOps Pipeline completed'
+                sh '''
+                    echo "=== Todo DevOps Pipeline Final Report ===" > final-report.txt
+                    echo "Build: ${BUILD_NUMBER}" >> final-report.txt
+                    echo "Timestamp: $(date)" >> final-report.txt
+                    echo "Branch: ${BRANCH_NAME:-main}" >> final-report.txt
+                    echo "Mode: No Docker Deployment" >> final-report.txt
+                    echo "" >> final-report.txt
+                    echo "Deployment Status:" >> final-report.txt
+                    if [ -f "${PROD_PID_FILE}" ] && ps -p $(cat ${PROD_PID_FILE}) > /dev/null; then
+                        echo "- Production: Running (PID: $(cat ${PROD_PID_FILE}))" >> final-report.txt
+                    else
+                        echo "- Production: Not running" >> final-report.txt
+                    fi
+                    if [ -f "${STAGING_PID_FILE}" ] && ps -p $(cat ${STAGING_PID_FILE}) > /dev/null; then
+                        echo "- Staging: Running (PID: $(cat ${STAGING_PID_FILE}))" >> final-report.txt
+                    else
+                        echo "- Staging: Not running" >> final-report.txt
+                    fi
+                    echo "" >> final-report.txt
+                    echo "Access URLs:" >> final-report.txt
+                    echo "- Production: http://localhost:${PROD_PORT}" >> final-report.txt
+                    echo "- Staging: http://localhost:${STAGING_PORT}" >> final-report.txt
+                    echo "" >> final-report.txt
+                    echo "Pipeline Stages Completed:" >> final-report.txt
+                    echo "1. Checkout - Code retrieved from GitHub" >> final-report.txt
+                    echo "2. Build - Dependencies installed, build verified" >> final-report.txt
+                    echo "3. Test - Unit, Integration, Performance tests" >> final-report.txt
+                    echo "4. Code Quality - ESLint analysis, complexity check" >> final-report.txt
+                    echo "5. Security Scan - npm audit, secrets detection" >> final-report.txt
+                    echo "6. Deploy to Staging - Process-based deployment" >> final-report.txt
+                    echo "7. Release to Production - Blue-green deployment" >> final-report.txt
+                    echo "8. Monitoring & Alerting - Health monitoring setup" >> final-report.txt
+                    echo "" >> final-report.txt
+                    echo "Process Information:" >> final-report.txt
+                    echo "Node.js processes:" >> final-report.txt
+                    ps aux | grep node | grep -v grep >> final-report.txt || echo "No Node.js processes found" >> final-report.txt
+                    echo "" >> final-report.txt
+                    echo "Port Usage:" >> final-report.txt
+                    netstat -tlnp | grep -E ":(${PROD_PORT}|${STAGING_PORT})" >> final-report.txt || echo "No processes on configured ports" >> final-report.txt
+                '''
+                archiveArtifacts artifacts: 'final-report.txt'
+                sh '''
+                    rm -f integration-test.pid performance-test.pid || true
+                '''
             }
         }
         
         success {
-            node {
-                script {
-                    echo 'Todo DevOps Pipeline completed successfully!'
-                    if (fileExists('final-report.txt')) {
-                        def report = readFile('final-report.txt')
-                        echo "${report}"
-                    }
+            script {
+                echo 'Todo DevOps Pipeline completed successfully!'
+                if (fileExists('final-report.txt')) {
+                    def report = readFile('final-report.txt')
+                    echo "${report}"
                 }
             }
         }
         
         failure {
-            node {
-                script {
-                    echo 'Todo DevOps Pipeline failed'
-                    sh '''
-                        echo "Cleaning up processes..."
-                        if [ -f "${STAGING_PID_FILE}" ]; then
-                            kill $(cat ${STAGING_PID_FILE}) 2>/dev/null || echo "Staging cleanup attempted"
-                            rm -f ${STAGING_PID_FILE}
-                        fi
-                        if [ -f "${PROD_PID_FILE}" ]; then
-                            kill $(cat ${PROD_PID_FILE}) 2>/dev/null || echo "Production cleanup attempted"
-                            rm -f ${PROD_PID_FILE}
-                        fi
-                        rm -f integration-test.pid performance-test.pid || true
-                        pkill -f "PORT=300[2-3]" || echo "Test process cleanup attempted"
-                    '''
-                }
+            script {
+                echo 'Todo DevOps Pipeline failed'
+                sh '''
+                    echo "Cleaning up processes..."
+                    if [ -f "${STAGING_PID_FILE}" ]; then
+                        kill $(cat ${STAGING_PID_FILE}) 2>/dev/null || echo "Staging cleanup attempted"
+                        rm -f ${STAGING_PID_FILE}
+                    fi
+                    if [ -f "${PROD_PID_FILE}" ]; then
+                        kill $(cat ${PROD_PID_FILE}) 2>/dev/null || echo "Production cleanup attempted"
+                        rm -f ${PROD_PID_FILE}
+                    fi
+                    rm -f integration-test.pid performance-test.pid || true
+                    pkill -f "PORT=300[2-3]" || echo "Test process cleanup attempted"
+                '''
             }
         }
         
         unstable {
-            node {
-                script {
-                    echo 'Todo DevOps Pipeline completed with warnings'
-                }
+            script {
+                echo 'Todo DevOps Pipeline completed with warnings'
             }
         }
         
         cleanup {
-            node {
-                script {
-                    echo 'Final cleanup...'
-                    sh '''
-                        mkdir -p .jenkins_cache
-                        cp final-report.txt .jenkins_cache/ 2>/dev/null || true
-                        cp monitoring-setup.txt .jenkins_cache/ 2>/dev/null || true
-                        cp build-info.txt .jenkins_cache/ 2>/dev/null || true
-                        echo "Files preserved for next build:"
-                        ls -la .jenkins_cache/ || echo "No files preserved"
-                    '''
-                    cleanWs(
-                        cleanWhenNotBuilt: false,
-                        deleteDirs: true,
-                        disableDeferredWipeout: true,
-                        notFailBuild: true,
-                        patterns: [
-                            [pattern: '.jenkins_cache/**', type: 'EXCLUDE'],
-                            [pattern: '*.pid', type: 'INCLUDE']
-                        ]
-                    )
-                }
+            script {
+                echo 'Final cleanup...'
+                sh '''
+                    mkdir -p .jenkins_cache
+                    cp final-report.txt .jenkins_cache/ 2>/dev/null || true
+                    cp monitoring-setup.txt .jenkins_cache/ 2>/dev/null || true
+                    cp build-info.txt .jenkins_cache/ 2>/dev/null || true
+                    echo "Files preserved for next build:"
+                    ls -la .jenkins_cache/ || echo "No files preserved"
+                '''
+                cleanWs(
+                    cleanWhenNotBuilt: false,
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true,
+                    patterns: [
+                        [pattern: '.jenkins_cache/**', type: 'EXCLUDE'],
+                        [pattern: '*.pid', type: 'INCLUDE']
+                    ]
+                )
             }
         }
     }
